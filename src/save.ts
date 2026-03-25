@@ -1,9 +1,10 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
+import type { Saver } from './types.js';
 
-export function createSaver(savePath) {
-  let filePath;
+export function createSaver(savePath: string | boolean): Saver {
+  let filePath: string;
 
   if (savePath === true) {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
@@ -19,7 +20,7 @@ export function createSaver(savePath) {
 
   return {
     path: filePath,
-    write(line) {
+    write(line: string) {
       stream.write(line + '\n');
     },
     close() {
@@ -28,11 +29,11 @@ export function createSaver(savePath) {
   };
 }
 
-export async function clearLogs(dir = './logs') {
+export async function clearLogs(dir = './logs'): Promise<void> {
   try {
     const entries = await fsp.readdir(dir);
     await Promise.all(entries.map((entry) => fsp.unlink(path.join(dir, entry))));
-  } catch (err) {
+  } catch (err: any) {
     if (err.code === 'ENOENT') return;
     throw err;
   }

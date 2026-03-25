@@ -3,14 +3,14 @@ import chalk from 'chalk';
 // Extract the message part (without timestamp) for comparison
 const MSG_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(.+)/;
 
-function extractMessage(line) {
+function extractMessage(line: string): string {
   const match = MSG_RE.exec(line);
   return match ? match[1] : line;
 }
 
-export function createDedup(writeFn) {
-  let lastMsg = null;
-  let lastColorized = null;
+export function createDedup(writeFn: (colorized: string) => void): { write(line: string, colorized: string): void; flush(): void } {
+  let lastMsg: string | null = null;
+  let lastColorized: string | null = null;
   let count = 0;
 
   function flush() {
@@ -22,7 +22,7 @@ export function createDedup(writeFn) {
   }
 
   return {
-    write(line, colorized) {
+    write(line: string, colorized: string) {
       const msg = extractMessage(line);
 
       if (msg === lastMsg) {

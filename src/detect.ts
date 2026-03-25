@@ -1,8 +1,9 @@
 import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
 import { createInterface } from 'readline';
+import type { Platform } from './types.js';
 
-export async function detectAppId(cwd, platform) {
+export async function detectAppId(cwd: string, platform: Platform): Promise<string | null> {
   const ids = await collectAllIds(cwd, platform);
 
   if (ids.length === 0) return null;
@@ -11,8 +12,8 @@ export async function detectAppId(cwd, platform) {
   return promptChoice(ids);
 }
 
-export async function collectAllIds(cwd, platform) {
-  const found = new Set();
+export async function collectAllIds(cwd: string, platform: Platform): Promise<string[]> {
+  const found = new Set<string>();
 
   // 1. Try app.json (Expo + bare RN)
   const appJsonIds = await tryAppJson(cwd, platform);
@@ -31,11 +32,11 @@ export async function collectAllIds(cwd, platform) {
   return [...found];
 }
 
-async function tryAppJson(cwd, platform) {
+async function tryAppJson(cwd: string, platform: Platform): Promise<string[]> {
   try {
     const raw = await readFile(join(cwd, 'app.json'), 'utf8');
     const json = JSON.parse(raw);
-    const ids = [];
+    const ids: string[] = [];
     if (platform === 'android') {
       const id = json?.expo?.android?.package ?? json?.android?.package;
       if (id) ids.push(id);
@@ -48,7 +49,7 @@ async function tryAppJson(cwd, platform) {
   } catch { return []; }
 }
 
-async function tryBuildGradle(cwd) {
+async function tryBuildGradle(cwd: string): Promise<string[]> {
   try {
     const raw = await readFile(join(cwd, 'android', 'app', 'build.gradle'), 'utf8');
 
@@ -73,7 +74,7 @@ async function tryBuildGradle(cwd) {
   } catch { return []; }
 }
 
-async function tryXcodeProject(cwd) {
+async function tryXcodeProject(cwd: string): Promise<string[]> {
   try {
     const iosDir = join(cwd, 'ios');
     const files = await readdir(iosDir);
@@ -81,7 +82,7 @@ async function tryXcodeProject(cwd) {
     if (!xcodeproj) return [];
     const pbx = await readFile(join(iosDir, xcodeproj, 'project.pbxproj'), 'utf8');
     const matches = [...pbx.matchAll(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+)/g)];
-    const ids = new Set();
+    const ids = new Set<string>();
     for (const m of matches) {
       const id = m[1].trim().replace(/"/g, '');
       if (id && !id.includes('$(')) ids.add(id);
@@ -90,7 +91,7 @@ async function tryXcodeProject(cwd) {
   } catch { return []; }
 }
 
-function promptChoice(ids) {
+export function promptChoice(ids: string[]): Promise<string> {
   return new Promise((resolve) => {
     const rl = createInterface({ input: process.stdin, output: process.stdout });
     console.log('\nMultiple app identifiers found:\n');

@@ -5,7 +5,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 
 describe('detectAppId', () => {
-  let dir;
+  let dir: string;
 
   const setup = async () => {
     dir = await mkdtemp(join(tmpdir(), 'rn-devlog-'));

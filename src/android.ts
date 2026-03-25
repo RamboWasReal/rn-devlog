@@ -1,9 +1,11 @@
 import { execSync, spawn } from 'child_process';
+import type { ChildProcess } from 'child_process';
 import chalk from 'chalk';
 import { colorizeLine, highlightPatterns } from './colorize.js';
 import { createDedup } from './dedup.js';
+import type { StreamOptions } from './types.js';
 
-function adbCheck() {
+function adbCheck(): void {
   try {
     execSync('command -v adb', { stdio: 'ignore' });
   } catch {
@@ -11,19 +13,19 @@ function adbCheck() {
   }
 }
 
-function deviceCheck() {
+function deviceCheck(): void {
   try {
     const state = execSync('adb get-state', { encoding: 'utf8' }).trim();
     if (state !== 'device') {
       throw new Error(`adb device state is "${state}". Connect a device or start an emulator.`);
     }
-  } catch (err) {
+  } catch (err: any) {
     if (err.message.includes('adb device state')) throw err;
     throw new Error('No Android device or emulator connected. Run "adb devices" to check.');
   }
 }
 
-function getPid(appId) {
+function getPid(appId: string): string | null {
   try {
     const out = execSync(`adb shell pidof ${appId}`, { encoding: 'utf8' }).trim();
     return out || null;
@@ -32,7 +34,7 @@ function getPid(appId) {
   }
 }
 
-async function waitForPid(appId) {
+async function waitForPid(appId: string): Promise<string> {
   process.stdout.write(`Waiting for ${appId}...\n`);
   return new Promise((resolve) => {
     const interval = setInterval(() => {
@@ -45,13 +47,13 @@ async function waitForPid(appId) {
   });
 }
 
-export async function streamAndroid({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }) {
+export async function streamAndroid({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }: StreamOptions): Promise<void> {
   adbCheck();
   deviceCheck();
 
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
 
-  function outputLine(line) {
+  function outputLine(line: string) {
     if (jsOnly && !/ [VDIWEF] ReactNativeJS:/.test(line)) return;
     if (nativeOnly && / [VDIWEF] ReactNativeJS:/.test(line)) return;
     if (noiseFilter && !noiseFilter(line)) return;
@@ -83,11 +85,11 @@ export async function streamAndroid({ appId, filter, noiseFilter, saver, all, ta
   }
 
   // Streaming mode
-  let currentPid = null;
-  let logcatProc = null;
+  let currentPid: string | null = null;
+  let logcatProc: ChildProcess | null = null;
   let stopped = false;
 
-  function startLogcat(pid) {
+  function startLogcat(pid: string | null): ChildProcess {
     const args = ['-v', 'threadtime'];
     if (!all && pid) {
       args.push(`--pid=${pid}`);
@@ -102,10 +104,10 @@ export async function streamAndroid({ appId, filter, noiseFilter, saver, all, ta
 
     let buffer = '';
 
-    proc.stdout.on('data', (chunk) => {
+    proc.stdout!.on('data', (chunk) => {
       buffer += chunk.toString();
       const lines = buffer.split('\n');
-      buffer = lines.pop();
+      buffer = lines.pop()!;
 
       for (const line of lines) {
         if (!line) continue;
@@ -114,7 +116,7 @@ export async function streamAndroid({ appId, filter, noiseFilter, saver, all, ta
       }
     });
 
-    proc.stderr.on('data', () => {});
+    proc.stderr!.on('data', () => {});
 
     return proc;
   }

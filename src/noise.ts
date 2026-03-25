@@ -1,6 +1,6 @@
 // Default noise patterns to hide in RN apps
 // These match against the full raw logcat line
-const NOISE_PATTERNS = [
+const NOISE_PATTERNS: RegExp[] = [
   // Android system noise
   /Background concurrent mark compact GC/,
   /Background young concurrent copying GC/,
@@ -30,6 +30,6 @@ const NOISE_PATTERNS = [
   /Could not find generated setter for class/,
 ];
 
-export function createNoiseFilter() {
-  return (line) => !NOISE_PATTERNS.some((re) => re.test(line));
+export function createNoiseFilter(): (line: string) => boolean {
+  return (line: string) => !NOISE_PATTERNS.some((re) => re.test(line));
 }

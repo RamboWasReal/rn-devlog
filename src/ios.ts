@@ -1,8 +1,9 @@
 import { spawn, execSync } from 'child_process';
 import { colorizeLine, highlightPatterns } from './colorize.js';
 import { createDedup } from './dedup.js';
+import type { StreamOptions } from './types.js';
 
-function isSimulatorBooted() {
+function isSimulatorBooted(): boolean {
   try {
     const output = execSync('xcrun simctl list devices booted', { encoding: 'utf8' });
     return output.includes('Booted');
@@ -11,7 +12,7 @@ function isSimulatorBooted() {
   }
 }
 
-function isCommandInPath(cmd) {
+function isCommandInPath(cmd: string): boolean {
   try {
     execSync(`which ${cmd}`, { encoding: 'utf8', stdio: 'pipe' });
     return true;
@@ -20,16 +21,16 @@ function isCommandInPath(cmd) {
   }
 }
 
-function getAppName(appId) {
+function getAppName(appId: string): string {
   const parts = appId.split('.');
   return parts[parts.length - 1];
 }
 
-export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }) {
+export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }: StreamOptions): void {
   const simulatorMode = isSimulatorBooted();
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
 
-  function processLine(line) {
+  function processLine(line: string) {
     if (!line) return;
     if (!simulatorMode && !all) {
       const appName = getAppName(appId);
@@ -85,14 +86,14 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
 
   let buffer = '';
 
-  child.stdout.on('data', (chunk) => {
+  child.stdout!.on('data', (chunk) => {
     buffer += chunk.toString();
     const lines = buffer.split('\n');
-    buffer = lines.pop();
+    buffer = lines.pop()!;
     for (const line of lines) processLine(line);
   });
 
-  child.stderr.on('data', (chunk) => {
+  child.stderr!.on('data', (chunk) => {
     process.stderr.write(chunk);
   });
 

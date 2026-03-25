@@ -31,7 +31,7 @@ program
   .option('--native', 'Show only native logs (skip JS)')
   .parse();
 
-const opts = program.opts();
+const opts = program.opts() as any;
 
 // Handle --clear
 if (opts.clear) {
@@ -41,7 +41,7 @@ if (opts.clear) {
 }
 
 // Determine platform
-let platform = null;
+let platform: string | null = null;
 if (opts.android) platform = 'android';
 else if (opts.ios) platform = 'ios';
 else {
@@ -58,7 +58,7 @@ else {
 // Resolve appId
 let appId = opts.appId;
 if (!appId && !opts.all) {
-  appId = await detectAppId(process.cwd(), platform);
+  appId = await detectAppId(process.cwd(), platform as 'android' | 'ios');
   if (!appId) {
     console.error(chalk.red('Could not detect app identifier. Use --appId <id> or --all'));
     process.exit(1);
@@ -67,14 +67,14 @@ if (!appId && !opts.all) {
 }
 
 // Determine log level filter
-let level = null;
+let level: string | null = null;
 if (opts.error) level = 'error';
 else if (opts.warn) level = 'warn';
 else if (opts.info) level = 'info';
 else if (opts.debug) level = 'debug';
 
 // Create filter
-const filter = createFilter({ level, patterns: opts.filter, regex: opts.regex });
+const filter = createFilter({ level: level ?? undefined, patterns: opts.filter, regex: opts.regex });
 
 // Create saver if --save
 let saver = null;
@@ -95,7 +95,7 @@ try {
   } else {
     await streamIos(streamOpts);
   }
-} catch (err) {
+} catch (err: any) {
   console.error(chalk.red(err.message));
   process.exit(1);
 }

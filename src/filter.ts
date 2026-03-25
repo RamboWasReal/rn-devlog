@@ -1,12 +1,14 @@
+import type { FilterOptions } from './types.js';
+
 // Android threadtime log format: MM-DD HH:MM:SS.mmm  PID  TID LEVEL TAG: message
 const LEVEL_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+([VDIWEF])\s/;
 
 // Extract message part (after "TAG: ")
 const MESSAGE_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+[VDIWEF]\s+[^:]+:\s*(.*)/;
 
-const SEVERITY = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5 };
+const SEVERITY: Record<string, number> = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5 };
 
-const LEVEL_MAP = {
+const LEVEL_MAP: Record<string, string> = {
   verbose: 'V',
   debug: 'D',
   info: 'I',
@@ -15,17 +17,18 @@ const LEVEL_MAP = {
   fatal: 'F',
 };
 
-function escapeRegex(str) {
+export function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function createFilter({ level, patterns, regex } = {}) {
+export function createFilter(options: FilterOptions = {}): (line: string) => boolean {
+  const { level, patterns, regex } = options;
   const minSeverity = level ? SEVERITY[LEVEL_MAP[level]] : -1;
   const matchers = patterns?.length
     ? patterns.map((p) => new RegExp(regex ? p : escapeRegex(p), 'i'))
     : null;
 
-  return (line) => {
+  return (line: string) => {
     if (minSeverity >= 0) {
       const match = LEVEL_RE.exec(line);
       if (!match) return false;

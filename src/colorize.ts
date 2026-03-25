@@ -1,6 +1,7 @@
 import chalk from 'chalk';
+import type { Platform, LogLevel } from './types.js';
 
-const ANDROID_LEVEL_MAP = {
+const ANDROID_LEVEL_MAP: Record<string, LogLevel> = {
   V: 'verbose',
   D: 'debug',
   I: 'info',
@@ -9,7 +10,7 @@ const ANDROID_LEVEL_MAP = {
   F: 'fatal',
 };
 
-const IOS_LEVEL_MAP = {
+const IOS_LEVEL_MAP: Record<string, LogLevel> = {
   Default: 'info',
   Info: 'info',
   Debug: 'debug',
@@ -19,11 +20,8 @@ const IOS_LEVEL_MAP = {
 
 /**
  * Parse the log level from a log line.
- * @param {string} line
- * @param {'android'|'ios'} platform
- * @returns {'verbose'|'debug'|'info'|'warn'|'error'|'fatal'}
  */
-export function parseLogLevel(line, platform) {
+export function parseLogLevel(line: string, platform: Platform): LogLevel {
   if (platform === 'android') {
     // threadtime format: MM-DD HH:MM:SS.mmm  PID  TID LEVEL Tag: message
     const match = line.match(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s/);
@@ -40,12 +38,12 @@ export function parseLogLevel(line, platform) {
   return 'info';
 }
 
-const TAG_ALIASES = {
+const TAG_ALIASES: Record<string, string> = {
   'ReactNativeJS': 'JS',
   'ReactNativeJNI': 'Bridge',
 };
 
-function friendlyTag(tag) {
+function friendlyTag(tag: string): string {
   const trimmed = tag.trim();
   if (TAG_ALIASES[trimmed]) return TAG_ALIASES[trimmed];
   // Shorten process-style tags like "am.dialogue.dev" → "Native"
@@ -54,7 +52,7 @@ function friendlyTag(tag) {
 }
 
 // Parse Android threadtime into clean format: HH:MM:SS LEVEL TAG  message
-function formatAndroid(line) {
+function formatAndroid(line: string): { time: string; level: string; tag: string; message: string } | null {
   const match = line.match(/^\d{2}-\d{2} (\d{2}:\d{2}:\d{2})\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s+([^:]+):\s*(.*)/);
   if (match) {
     const [, time, level, tag, message] = match;
@@ -64,7 +62,7 @@ function formatAndroid(line) {
 }
 
 // Parse iOS log stream into clean format
-function formatIos(line) {
+function formatIos(line: string): { time: string; level: string; tag: string; message: string } | null {
   const match = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+[^\[]*\[([^\]]+)\]\s*(?:\[(Default|Info|Debug|Error|Fault)\])?\s*(.*)/);
   if (match) {
     const [, datetime, process, level, message] = match;
@@ -75,7 +73,7 @@ function formatIos(line) {
   return null;
 }
 
-export function highlightPatterns(colorized, rawLine, patterns) {
+export function highlightPatterns(colorized: string, rawLine: string, patterns?: string[]): string {
   if (!patterns?.length) return colorized;
   let result = colorized;
   for (const p of patterns) {
@@ -85,7 +83,7 @@ export function highlightPatterns(colorized, rawLine, patterns) {
   return result;
 }
 
-export function colorizeLine(line, platform) {
+export function colorizeLine(line: string, platform: Platform): string {
   const parsed = platform === 'android' ? formatAndroid(line) : formatIos(line);
 
   if (!parsed) return chalk.dim(line);
@@ -93,7 +91,7 @@ export function colorizeLine(line, platform) {
   const { time, level, tag, message } = parsed;
   const logLevel = parseLogLevel(line, platform);
 
-  const LEVEL_STYLE = {
+  const LEVEL_STYLE: Record<string, { label: string; color: (s: string) => string }> = {
     fatal:   { label: '[FATAL]', color: chalk.bold.red },
     error:   { label: '[ERROR]', color: chalk.red },
     warn:    { label: '[WARN] ', color: chalk.yellow },
