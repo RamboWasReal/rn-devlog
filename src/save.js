@@ -18,6 +18,7 @@ export function createSaver(savePath) {
   const stream = fs.createWriteStream(filePath, { flags: 'a' });
 
   return {
+    path: filePath,
     write(line) {
       stream.write(line + '\n');
     },
