@@ -1,5 +1,6 @@
 import { spawn, execSync } from 'child_process';
-import { colorizeLine } from './colorize.js';
+import { colorizeLine, highlightPatterns } from './colorize.js';
+import { createDedup } from './dedup.js';
 
 function isSimulatorBooted() {
   try {
@@ -24,9 +25,48 @@ function getAppName(appId) {
   return parts[parts.length - 1];
 }
 
-export function streamIos({ appId, filter, saver, all }) {
+export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }) {
   const simulatorMode = isSimulatorBooted();
+  const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
 
+  function processLine(line) {
+    if (!line) return;
+    if (!simulatorMode && !all) {
+      const appName = getAppName(appId);
+      if (!line.includes(appId) && !line.includes(appName)) return;
+    }
+    if (jsOnly && !line.includes('ReactNativeJS')) return;
+    if (nativeOnly && line.includes('ReactNativeJS')) return;
+    if (filter && !filter(line)) return;
+    if (noiseFilter && !noiseFilter(line)) return;
+    let colorized = colorizeLine(line, 'ios');
+    colorized = highlightPatterns(colorized, line, patterns);
+    if (saver) saver.write(line);
+    if (dedup) {
+      dedup.write(line, colorized);
+    } else {
+      process.stdout.write(colorized + '\n');
+    }
+  }
+
+  // Tail-only mode: dump recent logs and exit
+  if (tail && !follow) {
+    if (simulatorMode) {
+      // log show --last 1m gives recent logs, we take last N lines
+      const args = ['simctl', 'spawn', 'booted', 'log', 'show', '--last', '5m', '--style=compact'];
+      if (!all) {
+        const appName = getAppName(appId);
+        args.push('--predicate', `process CONTAINS "${appName}"`);
+      }
+      const output = execSync(['xcrun', ...args].join(' '), { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
+      const lines = output.split('\n').filter(l => l.trim()).slice(-tail);
+      for (const line of lines) processLine(line);
+    }
+    if (saver) saver.close();
+    return;
+  }
+
+  // Streaming mode
   let child;
 
   if (simulatorMode) {
@@ -48,25 +88,8 @@ export function streamIos({ appId, filter, saver, all }) {
   child.stdout.on('data', (chunk) => {
     buffer += chunk.toString();
     const lines = buffer.split('\n');
-    buffer = lines.pop(); // keep incomplete last line
-
-    for (const line of lines) {
-      if (!line) continue;
-
-      if (!simulatorMode && !all) {
-        const appName = getAppName(appId);
-        if (!line.includes(appId) && !line.includes(appName)) continue;
-      }
-
-      if (filter && !filter(line)) continue;
-
-      const colorized = colorizeLine(line, 'ios');
-      process.stdout.write(colorized + '\n');
-
-      if (saver) {
-        saver.write(line);
-      }
-    }
+    buffer = lines.pop();
+    for (const line of lines) processLine(line);
   });
 
   child.stderr.on('data', (chunk) => {

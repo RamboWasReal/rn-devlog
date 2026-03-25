@@ -46,4 +46,20 @@ describe('createFilter', () => {
     expect(fn('NETWORK request failed')).toBe(true);
     expect(fn('Network request failed')).toBe(true);
   });
+
+  it('pattern matches message only, not tag/metadata', () => {
+    const fn = createFilter({ patterns: ['dialogue'] });
+    // "dialogue" in tag only — should NOT match
+    expect(fn('03-25 10:00:00.000  1234  5678 I ca.diagram.dialogue: app started')).toBe(false);
+    // "dialogue" in message — should match
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: dialogue session created')).toBe(true);
+    // no match at all
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: nothing here')).toBe(false);
+  });
+
+  it('pattern matches non-logcat lines as full text fallback', () => {
+    const fn = createFilter({ patterns: ['hello'] });
+    expect(fn('hello world')).toBe(true);
+    expect(fn('goodbye')).toBe(false);
+  });
 });

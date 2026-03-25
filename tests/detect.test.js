@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectAppId } from '../src/detect.js';
+import { detectAppId, collectAllIds } from '../src/detect.js';
 import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises';
 import { join } from 'path';
 import { tmpdir } from 'os';
@@ -47,6 +47,19 @@ describe('detectAppId', () => {
     await setup();
     const result = await detectAppId(dir, 'android');
     expect(result).toBeNull();
+    await cleanup();
+  });
+
+  it('collects multiple applicationIds from build.gradle flavors', async () => {
+    await setup();
+    await mkdir(join(dir, 'android', 'app'), { recursive: true });
+    await writeFile(join(dir, 'android', 'app', 'build.gradle'),
+      'productFlavors {\n  main {\n    applicationId "com.app.main"\n  }\n  staging {\n    applicationId "com.app.staging"\n  }\n}'
+    );
+    const ids = await collectAllIds(dir, 'android');
+    expect(ids).toContain('com.app.main');
+    expect(ids).toContain('com.app.staging');
+    expect(ids.length).toBe(2);
     await cleanup();
   });
 });

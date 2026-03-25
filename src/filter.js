@@ -1,6 +1,8 @@
 // Android threadtime log format: MM-DD HH:MM:SS.mmm  PID  TID LEVEL TAG: message
-// Level letter is the 7th whitespace-separated token (index 4 after splitting date+time+pid+tid).
 const LEVEL_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+([VDIWEF])\s/;
+
+// Extract message part (after "TAG: ")
+const MESSAGE_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+[VDIWEF]\s+[^:]+:\s*(.*)/;
 
 const SEVERITY = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5 };
 
@@ -13,14 +15,14 @@ const LEVEL_MAP = {
   fatal: 'F',
 };
 
-/**
- * @param {{ level?: string, patterns?: string[] }} options
- * @returns {(line: string) => boolean}
- */
-export function createFilter({ level, patterns } = {}) {
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function createFilter({ level, patterns, regex } = {}) {
   const minSeverity = level ? SEVERITY[LEVEL_MAP[level]] : -1;
-  const regexps = patterns?.length
-    ? patterns.map((p) => new RegExp(p, 'i'))
+  const matchers = patterns?.length
+    ? patterns.map((p) => new RegExp(regex ? p : escapeRegex(p), 'i'))
     : null;
 
   return (line) => {
@@ -30,8 +32,10 @@ export function createFilter({ level, patterns } = {}) {
       if (SEVERITY[match[1]] < minSeverity) return false;
     }
 
-    if (regexps) {
-      if (!regexps.some((re) => re.test(line))) return false;
+    if (matchers) {
+      const msgMatch = MESSAGE_RE.exec(line);
+      const message = msgMatch ? msgMatch[1] : line;
+      if (!matchers.some((re) => re.test(message))) return false;
     }
 
     return true;

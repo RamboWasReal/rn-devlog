@@ -1,42 +1,105 @@
-import { readFile } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 import { join } from 'path';
+import { createInterface } from 'readline';
 
 export async function detectAppId(cwd, platform) {
-  const appId = await tryAppJson(cwd, platform);
-  if (appId) return appId;
+  const ids = await collectAllIds(cwd, platform);
 
-  if (platform === 'android') return tryBuildGradle(cwd);
-  if (platform === 'ios') return tryXcodeProject(cwd);
+  if (ids.length === 0) return null;
+  if (ids.length === 1) return ids[0];
 
-  return null;
+  return promptChoice(ids);
+}
+
+export async function collectAllIds(cwd, platform) {
+  const found = new Set();
+
+  // 1. Try app.json (Expo + bare RN)
+  const appJsonIds = await tryAppJson(cwd, platform);
+  for (const id of appJsonIds) found.add(id);
+
+  // 2. Try platform-specific files
+  if (platform === 'android') {
+    const gradleIds = await tryBuildGradle(cwd);
+    for (const id of gradleIds) found.add(id);
+  }
+  if (platform === 'ios') {
+    const xcodeIds = await tryXcodeProject(cwd);
+    for (const id of xcodeIds) found.add(id);
+  }
+
+  return [...found];
 }
 
 async function tryAppJson(cwd, platform) {
   try {
     const raw = await readFile(join(cwd, 'app.json'), 'utf8');
     const json = JSON.parse(raw);
-    if (platform === 'android') return json?.expo?.android?.package ?? json?.android?.package ?? null;
-    if (platform === 'ios') return json?.expo?.ios?.bundleIdentifier ?? json?.ios?.bundleIdentifier ?? null;
-  } catch { return null; }
+    const ids = [];
+    if (platform === 'android') {
+      const id = json?.expo?.android?.package ?? json?.android?.package;
+      if (id) ids.push(id);
+    }
+    if (platform === 'ios') {
+      const id = json?.expo?.ios?.bundleIdentifier ?? json?.ios?.bundleIdentifier;
+      if (id) ids.push(id);
+    }
+    return ids;
+  } catch { return []; }
 }
 
 async function tryBuildGradle(cwd) {
   try {
     const raw = await readFile(join(cwd, 'android', 'app', 'build.gradle'), 'utf8');
-    const match = raw.match(/applicationId\s+["']([^"']+)["']/);
-    return match?.[1] ?? null;
-  } catch { return null; }
+
+    // Collect base applicationIds from productFlavors
+    const baseIds = [...raw.matchAll(/applicationId\s+["']([^"']+)["']/g)].map(m => m[1]);
+
+    // Collect applicationIdSuffix from buildTypes
+    const suffixes = [...raw.matchAll(/applicationIdSuffix\s+["']([^"']*)["']/g)]
+      .map(m => m[1])
+      .filter(s => s.length > 0);
+    const uniqueSuffixes = [...new Set(suffixes)];
+
+    // Generate all combinations: base + suffix
+    const ids = new Set(baseIds);
+    for (const base of baseIds) {
+      for (const suffix of uniqueSuffixes) {
+        ids.add(base + suffix);
+      }
+    }
+
+    return [...ids];
+  } catch { return []; }
 }
 
 async function tryXcodeProject(cwd) {
   try {
-    const { readdir } = await import('fs/promises');
     const iosDir = join(cwd, 'ios');
     const files = await readdir(iosDir);
     const xcodeproj = files.find(f => f.endsWith('.xcodeproj'));
-    if (!xcodeproj) return null;
+    if (!xcodeproj) return [];
     const pbx = await readFile(join(iosDir, xcodeproj, 'project.pbxproj'), 'utf8');
-    const match = pbx.match(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+)/);
-    return match?.[1]?.trim()?.replace(/"/g, '') ?? null;
-  } catch { return null; }
+    const matches = [...pbx.matchAll(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+)/g)];
+    const ids = new Set();
+    for (const m of matches) {
+      const id = m[1].trim().replace(/"/g, '');
+      if (id && !id.includes('$(')) ids.add(id);
+    }
+    return [...ids];
+  } catch { return []; }
+}
+
+function promptChoice(ids) {
+  return new Promise((resolve) => {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    console.log('\nMultiple app identifiers found:\n');
+    ids.forEach((id, i) => console.log(`  ${i + 1}) ${id}`));
+    console.log('');
+    rl.question('Select [1]: ', (answer) => {
+      rl.close();
+      const idx = parseInt(answer || '1', 10) - 1;
+      resolve(ids[idx] ?? ids[0]);
+    });
+  });
 }

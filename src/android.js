@@ -1,6 +1,7 @@
 import { execSync, spawn } from 'child_process';
 import chalk from 'chalk';
-import { colorizeLine } from './colorize.js';
+import { colorizeLine, highlightPatterns } from './colorize.js';
+import { createDedup } from './dedup.js';
 
 function adbCheck() {
   try {
@@ -44,10 +45,44 @@ async function waitForPid(appId) {
   });
 }
 
-export async function streamAndroid({ appId, filter, saver, all }) {
+export async function streamAndroid({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }) {
   adbCheck();
   deviceCheck();
 
+  const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
+
+  function outputLine(line) {
+    if (jsOnly && !/ [VDIWEF] ReactNativeJS:/.test(line)) return;
+    if (nativeOnly && / [VDIWEF] ReactNativeJS:/.test(line)) return;
+    if (noiseFilter && !noiseFilter(line)) return;
+    let colorized = colorizeLine(line, 'android');
+    colorized = highlightPatterns(colorized, line, patterns);
+    if (saver) saver.write(line);
+    if (dedup) {
+      dedup.write(line, colorized);
+    } else {
+      process.stdout.write(colorized + '\n');
+    }
+  }
+
+  // Tail-only mode: dump and exit
+  if (tail && !follow) {
+    const pid = all ? null : getPid(appId);
+    const args = ['logcat', '-v', 'threadtime', '-d', '-T', String(tail)];
+    if (pid) args.push(`--pid=${pid}`);
+
+    const output = execSync(['adb', ...args].join(' '), { encoding: 'utf8' });
+    for (const line of output.split('\n')) {
+      if (!line) continue;
+      if (filter && !filter(line)) continue;
+      outputLine(line);
+    }
+    if (dedup) dedup.flush();
+    if (saver) saver.close();
+    return;
+  }
+
+  // Streaming mode
   let currentPid = null;
   let logcatProc = null;
   let stopped = false;
@@ -56,6 +91,9 @@ export async function streamAndroid({ appId, filter, saver, all }) {
     const args = ['-v', 'threadtime'];
     if (!all && pid) {
       args.push(`--pid=${pid}`);
+    }
+    if (tail) {
+      args.push('-T', String(tail));
     }
 
     const proc = spawn('adb', ['logcat', ...args], {
@@ -67,14 +105,12 @@ export async function streamAndroid({ appId, filter, saver, all }) {
     proc.stdout.on('data', (chunk) => {
       buffer += chunk.toString();
       const lines = buffer.split('\n');
-      buffer = lines.pop(); // keep incomplete last line
+      buffer = lines.pop();
 
       for (const line of lines) {
         if (!line) continue;
         if (filter && !filter(line)) continue;
-        const colorized = colorizeLine(line, 'android');
-        process.stdout.write(colorized + '\n');
-        if (saver) saver.write(line);
+        outputLine(line);
       }
     });
 
@@ -96,7 +132,6 @@ export async function streamAndroid({ appId, filter, saver, all }) {
     currentPid = pid;
     logcatProc = startLogcat(pid);
 
-    // Poll for PID change every 1 second
     const pidPoller = setInterval(async () => {
       if (stopped) {
         clearInterval(pidPoller);
@@ -116,7 +151,6 @@ export async function streamAndroid({ appId, filter, saver, all }) {
         process.stdout.write(chalk.cyan(`App restarted (PID ${currentPid} → ${newPid ?? 'gone'}). Reconnecting...\n`));
         currentPid = null;
 
-        // Restart streaming
         await start();
       }
     }, 1000);
@@ -127,6 +161,7 @@ export async function streamAndroid({ appId, filter, saver, all }) {
     if (logcatProc) {
       logcatProc.kill();
     }
+    if (saver) saver.close();
     process.exit(0);
   });
 
