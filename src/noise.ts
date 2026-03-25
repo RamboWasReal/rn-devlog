@@ -28,6 +28,20 @@ const NOISE_PATTERNS: RegExp[] = [
 
   // ViewManager warnings
   /Could not find generated setter for class/,
+
+  // iOS system noise
+  /\[com\.apple\.network:/,
+  /\[com\.apple\.CFNetwork:/,
+  /\[com\.apple\.BackBoard:/,
+  /\[com\.apple\.UIKit:/,
+  /\[com\.apple\.KeyboardArbiter:/,
+  /\[com\.apple\.locationd/,
+  /nw_connection/,
+  /nw_endpoint/,
+  /nw_flow/,
+  /nw_protocol/,
+  /nw_association/,
+  /nw_context/,
 ];
 
 export function createNoiseFilter(): (line: string) => boolean {

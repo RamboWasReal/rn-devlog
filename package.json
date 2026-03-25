@@ -2,6 +2,7 @@
   "name": "rn-devlog",
   "version": "0.1.0-beta.1",
   "description": "Stream Android & iOS device logs for React Native apps",
+  "type": "module",
   "bin": {
     "rn-devlog": "./dist/bin/rn-devlog.js"
   },

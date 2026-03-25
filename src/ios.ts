@@ -21,6 +21,17 @@ function isCommandInPath(cmd: string): boolean {
   }
 }
 
+function getProcessName(appId: string): string | null {
+  try {
+    // Get the app container path — the last path component is the .app bundle name
+    const container = execSync(`xcrun simctl get_app_container booted "${appId}"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    const appBundle = container.split('/').pop() || '';
+    return appBundle.replace(/\.app$/, '') || null;
+  } catch {
+    return null;
+  }
+}
+
 function getAppName(appId: string): string {
   const parts = appId.split('.');
   return parts[parts.length - 1];
@@ -29,15 +40,22 @@ function getAppName(appId: string): string {
 export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }: StreamOptions): void {
   const simulatorMode = isSimulatorBooted();
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
+  const detectedProcess = simulatorMode ? getProcessName(appId) : null;
+  const processName = detectedProcess || getAppName(appId);
+  if (detectedProcess) {
+    process.stdout.write(`Process name: ${detectedProcess}\n`);
+  } else if (simulatorMode) {
+    process.stderr.write(`Warning: could not detect process name, falling back to "${processName}"\n`);
+  }
 
   function processLine(line: string) {
     if (!line) return;
     if (!simulatorMode && !all) {
-      const appName = getAppName(appId);
-      if (!line.includes(appId) && !line.includes(appName)) return;
+      if (!line.includes(appId) && !line.includes(processName)) return;
     }
-    if (jsOnly && !line.includes('ReactNativeJS')) return;
-    if (nativeOnly && line.includes('ReactNativeJS')) return;
+    const isJsLog = line.includes('ReactNativeJS') || line.includes('com.facebook.react.log:javascript');
+    if (jsOnly && !isJsLog) return;
+    if (nativeOnly && isJsLog) return;
     if (filter && !filter(line)) return;
     if (noiseFilter && !noiseFilter(line)) return;
     let colorized = colorizeLine(line, 'ios');
@@ -53,15 +71,33 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
   // Tail-only mode: dump recent logs and exit
   if (tail && !follow) {
     if (simulatorMode) {
-      // log show --last 1m gives recent logs, we take last N lines
       const args = ['simctl', 'spawn', 'booted', 'log', 'show', '--last', '5m', '--style=compact'];
       if (!all) {
-        const appName = getAppName(appId);
-        args.push('--predicate', `process CONTAINS "${appName}"`);
+        args.push('--predicate', `'process CONTAINS "${processName}"'`);
       }
-      const output = execSync(['xcrun', ...args].join(' '), { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
-      const lines = output.split('\n').filter(l => l.trim()).slice(-tail);
-      for (const line of lines) processLine(line);
+      const output = execSync('xcrun ' + args.join(' ') + ' 2>/dev/null', { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
+      const allLines = output.split('\n').filter(l => l.trim());
+      // Apply filters first, then take last N
+      const filtered = allLines.filter(line => {
+        if (jsOnly) {
+          const isJs = line.includes('com.facebook.react.log:javascript');
+          if (!isJs) return false;
+        }
+        if (nativeOnly && line.includes('com.facebook.react.log:javascript')) return false;
+        if (filter && !filter(line)) return false;
+        if (noiseFilter && !noiseFilter(line)) return false;
+        return true;
+      });
+      for (const line of filtered.slice(-tail)) {
+        let colorized = colorizeLine(line, 'ios');
+        colorized = highlightPatterns(colorized, line, patterns);
+        if (saver) saver.write(line);
+        if (dedup) {
+          dedup.write(line, colorized);
+        } else {
+          process.stdout.write(colorized + '\n');
+        }
+      }
     }
     if (saver) saver.close();
     return;
@@ -73,8 +109,7 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
   if (simulatorMode) {
     const args = ['simctl', 'spawn', 'booted', 'log', 'stream', '--level=debug', '--style=compact'];
     if (!all) {
-      const appName = getAppName(appId);
-      args.push('--predicate', `process CONTAINS "${appName}"`);
+      args.push('--predicate', `process CONTAINS "${processName}"`);
     }
     child = spawn('xcrun', args);
   } else {
@@ -94,6 +129,8 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
   });
 
   child.stderr!.on('data', (chunk) => {
+    const msg = chunk.toString();
+    if (msg.includes('getpwuid_r')) return;
     process.stderr.write(chunk);
   });
 

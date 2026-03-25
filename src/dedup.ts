@@ -1,11 +1,14 @@
 import chalk from 'chalk';
 
-// Extract the message part (without timestamp) for comparison
-const MSG_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+\d+\s+\d+\s+[VDIWEF]\s+(.+)/;
-
+// Strip all timestamps and numeric noise for comparison
 function extractMessage(line: string): string {
-  const match = MSG_RE.exec(line);
-  return match ? match[1] : line;
+  return line
+    .replace(/\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/g, '')       // Android timestamp
+    .replace(/\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/g, '')  // iOS timestamp
+    .replace(/\d{2}:\d{2}:\d{2}\.\d+/g, '')                     // Embedded timestamps in message
+    .replace(/\s+\d+\s+\d+\s+/g, ' ')                           // Android PID/TID
+    .replace(/\[\w+:[a-f0-9]+\]/g, '')                           // iOS [pid:tid]
+    .trim();
 }
 
 export function createDedup(writeFn: (colorized: string) => void): { write(line: string, colorized: string): void; flush(): void } {

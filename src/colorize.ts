@@ -29,7 +29,17 @@ export function parseLogLevel(line: string, platform: Platform): LogLevel {
       return ANDROID_LEVEL_MAP[match[1]] ?? 'info';
     }
   } else if (platform === 'ios') {
-    // log stream format: ... [Level] message
+    // Compact format: level code after timestamp
+    const compact = line.match(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+(\w{1,2})\s/);
+    if (compact) {
+      const code = compact[1];
+      if (code === 'Db' || code === 'D') return 'debug';
+      if (code === 'E' || code === 'Er') return 'error';
+      if (code === 'F' || code === 'Ft') return 'fatal';
+      if (code === 'Df' || code === 'I' || code === 'N') return 'info';
+      return 'info';
+    }
+    // Verbose format fallback
     const match = line.match(/\[(Default|Info|Debug|Error|Fault)\]/);
     if (match) {
       return IOS_LEVEL_MAP[match[1]] ?? 'info';
@@ -61,14 +71,29 @@ function formatAndroid(line: string): { time: string; level: string; tag: string
   return null;
 }
 
-// Parse iOS log stream into clean format
+const IOS_COMPACT_LEVEL: Record<string, string> = {
+  'Df': 'I', 'Db': 'D', 'I':  'I', 'E':  'E', 'F':  'F',
+  'Er': 'E', 'Ft': 'F', 'N':  'I', 'D':  'D',
+};
+
+// Parse iOS log stream compact format:
+// 2026-03-25 17:33:49.924 Db PatientApp[30911:967cdd] [subsystem:category] message
 function formatIos(line: string): { time: string; level: string; tag: string; message: string } | null {
-  const match = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+[^\[]*\[([^\]]+)\]\s*(?:\[(Default|Info|Debug|Error|Fault)\])?\s*(.*)/);
-  if (match) {
-    const [, datetime, process, level, message] = match;
+  // Compact format
+  const compact = line.match(/^(\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}))\.\d+\s+(\w{1,2})\s+(\w+)\[[\d:a-f]+\]\s+(?:\[([^\]]+)\]\s+)?(.*)/);
+  if (compact) {
+    const [, , time, levelCode, process, subsystem, message] = compact;
+    const level = IOS_COMPACT_LEVEL[levelCode] || 'I';
+    const tag = subsystem?.includes('facebook.react') ? 'JS' : process;
+    return { time, level, tag, message };
+  }
+  // Verbose format fallback
+  const verbose = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+[^\[]*\[([^\]]+)\]\s*(?:\[(Default|Info|Debug|Error|Fault)\])?\s*(.*)/);
+  if (verbose) {
+    const [, datetime, proc, level, message] = verbose;
     const time = datetime.split(' ')[1];
     const lvl = level || 'Info';
-    return { time, level: lvl[0], tag: process, message };
+    return { time, level: lvl[0], tag: proc, message };
   }
   return null;
 }
