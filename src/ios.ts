@@ -48,12 +48,17 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
     process.stderr.write(`Warning: could not detect process name, falling back to "${processName}"\n`);
   }
 
+  const isNewLogEntry = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/);
+  let lastWasJs = false;
+
   function processLine(line: string) {
     if (!line) return;
     if (!simulatorMode && !all) {
       if (!line.includes(appId) && !line.includes(processName)) return;
     }
-    const isJsLog = line.includes('ReactNativeJS') || line.includes('com.facebook.react.log:javascript');
+    const isContinuation = !isNewLogEntry(line);
+    const isJsLog = isContinuation ? lastWasJs : (line.includes('ReactNativeJS') || line.includes('com.facebook.react.log:javascript'));
+    if (!isContinuation) lastWasJs = isJsLog;
     if (jsOnly && !isJsLog) return;
     if (nativeOnly && isJsLog) return;
     if (filter && !filter(line)) return;
@@ -78,12 +83,13 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
       const output = execSync('xcrun ' + args.join(' ') + ' 2>/dev/null', { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
       const allLines = output.split('\n').filter(l => l.trim());
       // Apply filters first, then take last N
+      let tailLastWasJs = false;
       const filtered = allLines.filter(line => {
-        if (jsOnly) {
-          const isJs = line.includes('com.facebook.react.log:javascript');
-          if (!isJs) return false;
-        }
-        if (nativeOnly && line.includes('com.facebook.react.log:javascript')) return false;
+        const isCont = !isNewLogEntry(line);
+        const isJs = isCont ? tailLastWasJs : line.includes('com.facebook.react.log:javascript');
+        if (!isCont) tailLastWasJs = isJs;
+        if (jsOnly && !isJs) return false;
+        if (nativeOnly && isJs) return false;
         if (filter && !filter(line)) return false;
         if (noiseFilter && !noiseFilter(line)) return false;
         return true;

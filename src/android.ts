@@ -53,9 +53,15 @@ export async function streamAndroid({ appId, filter, noiseFilter, saver, all, ta
 
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
 
+  const isNewAndroidEntry = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/);
+  let lastWasJs = false;
+
   function outputLine(line: string) {
-    if (jsOnly && !/ [VDIWEF] ReactNativeJS:/.test(line)) return;
-    if (nativeOnly && / [VDIWEF] ReactNativeJS:/.test(line)) return;
+    const isContinuation = !isNewAndroidEntry(line);
+    const isJsLog = isContinuation ? lastWasJs : / [VDIWEF] ReactNativeJS:/.test(line);
+    if (!isContinuation) lastWasJs = isJsLog;
+    if (jsOnly && !isJsLog) return;
+    if (nativeOnly && isJsLog) return;
     if (noiseFilter && !noiseFilter(line)) return;
     let colorized = colorizeLine(line, 'android');
     colorized = highlightPatterns(colorized, line, patterns);
