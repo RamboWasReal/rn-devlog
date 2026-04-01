@@ -46,7 +46,9 @@ async function tryAppJson(cwd: string, platform: Platform): Promise<string[]> {
       if (id) ids.push(id);
     }
     return ids;
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 async function tryBuildGradle(cwd: string): Promise<string[]> {
@@ -54,12 +56,12 @@ async function tryBuildGradle(cwd: string): Promise<string[]> {
     const raw = await readFile(join(cwd, 'android', 'app', 'build.gradle'), 'utf8');
 
     // Collect base applicationIds from productFlavors
-    const baseIds = [...raw.matchAll(/applicationId\s+["']([^"']+)["']/g)].map(m => m[1]);
+    const baseIds = [...raw.matchAll(/applicationId\s+["']([^"']+)["']/g)].map((m) => m[1]);
 
     // Collect applicationIdSuffix from buildTypes
     const suffixes = [...raw.matchAll(/applicationIdSuffix\s+["']([^"']*)["']/g)]
-      .map(m => m[1])
-      .filter(s => s.length > 0);
+      .map((m) => m[1])
+      .filter((s) => s.length > 0);
     const uniqueSuffixes = [...new Set(suffixes)];
 
     // Generate all combinations: base + suffix
@@ -71,14 +73,16 @@ async function tryBuildGradle(cwd: string): Promise<string[]> {
     }
 
     return [...ids];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 async function tryXcodeProject(cwd: string): Promise<string[]> {
   try {
     const iosDir = join(cwd, 'ios');
     const files = await readdir(iosDir);
-    const xcodeproj = files.find(f => f.endsWith('.xcodeproj'));
+    const xcodeproj = files.find((f) => f.endsWith('.xcodeproj'));
     if (!xcodeproj) return [];
     const pbx = await readFile(join(iosDir, xcodeproj, 'project.pbxproj'), 'utf8');
     const matches = [...pbx.matchAll(/PRODUCT_BUNDLE_IDENTIFIER\s*=\s*([^;]+)/g)];
@@ -88,7 +92,9 @@ async function tryXcodeProject(cwd: string): Promise<string[]> {
       if (id && !id.includes('$(')) ids.add(id);
     }
     return [...ids];
-  } catch { return []; }
+  } catch {
+    return [];
+  }
 }
 
 export function promptChoice(ids: string[]): Promise<string> {

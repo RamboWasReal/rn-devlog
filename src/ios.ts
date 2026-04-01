@@ -24,7 +24,10 @@ function isCommandInPath(cmd: string): boolean {
 function getProcessName(appId: string): string | null {
   try {
     // Get the app container path — the last path component is the .app bundle name
-    const container = execSync(`xcrun simctl get_app_container booted "${appId}"`, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }).trim();
+    const container = execSync(`xcrun simctl get_app_container booted "${appId}"`, {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    }).trim();
     const appBundle = container.split('/').pop() || '';
     return appBundle.replace(/\.app$/, '') || null;
   } catch {
@@ -37,7 +40,19 @@ function getAppName(appId: string): string {
   return parts[parts.length - 1];
 }
 
-export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }: StreamOptions): void {
+export function streamIos({
+  appId,
+  filter,
+  noiseFilter,
+  saver,
+  all,
+  tail,
+  follow,
+  patterns,
+  dedup: dedupEnabled = true,
+  jsOnly,
+  nativeOnly,
+}: StreamOptions): void {
   const simulatorMode = isSimulatorBooted();
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
   const detectedProcess = simulatorMode ? getProcessName(appId) : null;
@@ -45,10 +60,14 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
   if (detectedProcess) {
     process.stdout.write(`Process name: ${detectedProcess}\n`);
   } else if (simulatorMode) {
-    process.stderr.write(`Warning: could not detect process name, falling back to "${processName}"\n`);
+    process.stderr.write(
+      `Warning: could not detect process name, falling back to "${processName}"\n`,
+    );
   }
 
-  const isNewLogEntry = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/);
+  const isNewLogEntry = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/,
+  );
   let lastWasJs = false;
 
   function processLine(line: string) {
@@ -57,7 +76,9 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
       if (!line.includes(appId) && !line.includes(processName)) return;
     }
     const isContinuation = !isNewLogEntry(line);
-    const isJsLog = isContinuation ? lastWasJs : (line.includes('ReactNativeJS') || line.includes('com.facebook.react.log:javascript'));
+    const isJsLog = isContinuation
+      ? lastWasJs
+      : line.includes('ReactNativeJS') || line.includes('com.facebook.react.log:javascript');
     if (!isContinuation) lastWasJs = isJsLog;
     if (jsOnly && !isJsLog) return;
     if (nativeOnly && isJsLog) return;
@@ -80,11 +101,14 @@ export function streamIos({ appId, filter, noiseFilter, saver, all, tail, follow
       if (!all) {
         args.push('--predicate', `'process CONTAINS "${processName}"'`);
       }
-      const output = execSync('xcrun ' + args.join(' ') + ' 2>/dev/null', { encoding: 'utf8', maxBuffer: 50 * 1024 * 1024 });
-      const allLines = output.split('\n').filter(l => l.trim());
+      const output = execSync('xcrun ' + args.join(' ') + ' 2>/dev/null', {
+        encoding: 'utf8',
+        maxBuffer: 50 * 1024 * 1024,
+      });
+      const allLines = output.split('\n').filter((l) => l.trim());
       // Apply filters first, then take last N
       let tailLastWasJs = false;
-      const filtered = allLines.filter(line => {
+      const filtered = allLines.filter((line) => {
         const isCont = !isNewLogEntry(line);
         const isJs = isCont ? tailLastWasJs : line.includes('com.facebook.react.log:javascript');
         if (!isCont) tailLastWasJs = isJs;

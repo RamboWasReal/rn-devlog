@@ -49,8 +49,8 @@ export function parseLogLevel(line: string, platform: Platform): LogLevel {
 }
 
 const TAG_ALIASES: Record<string, string> = {
-  'ReactNativeJS': 'JS',
-  'ReactNativeJNI': 'Bridge',
+  ReactNativeJS: 'JS',
+  ReactNativeJNI: 'Bridge',
 };
 
 function friendlyTag(tag: string): string {
@@ -62,8 +62,12 @@ function friendlyTag(tag: string): string {
 }
 
 // Parse Android threadtime into clean format: HH:MM:SS LEVEL TAG  message
-function formatAndroid(line: string): { time: string; level: string; tag: string; message: string } | null {
-  const match = line.match(/^\d{2}-\d{2} (\d{2}:\d{2}:\d{2})\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s+([^:]+):\s*(.*)/);
+function formatAndroid(
+  line: string,
+): { time: string; level: string; tag: string; message: string } | null {
+  const match = line.match(
+    /^\d{2}-\d{2} (\d{2}:\d{2}:\d{2})\.\d+\s+\d+\s+\d+\s+([VDIWEF])\s+([^:]+):\s*(.*)/,
+  );
   if (match) {
     const [, time, level, tag, message] = match;
     return { time, level, tag: friendlyTag(tag), message };
@@ -72,15 +76,26 @@ function formatAndroid(line: string): { time: string; level: string; tag: string
 }
 
 const IOS_COMPACT_LEVEL: Record<string, string> = {
-  'Df': 'I', 'Db': 'D', 'I':  'I', 'E':  'E', 'F':  'F',
-  'Er': 'E', 'Ft': 'F', 'N':  'I', 'D':  'D',
+  Df: 'I',
+  Db: 'D',
+  I: 'I',
+  E: 'E',
+  F: 'F',
+  Er: 'E',
+  Ft: 'F',
+  N: 'I',
+  D: 'D',
 };
 
 // Parse iOS log stream compact format:
 // 2026-03-25 17:33:49.924 Db PatientApp[30911:967cdd] [subsystem:category] message
-function formatIos(line: string): { time: string; level: string; tag: string; message: string } | null {
+function formatIos(
+  line: string,
+): { time: string; level: string; tag: string; message: string } | null {
   // Compact format
-  const compact = line.match(/^(\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}))\.\d+\s+(\w{1,2})\s+(\w+)\[[\d:a-f]+\]\s+(?:\[([^\]]+)\]\s+)?(.*)/);
+  const compact = line.match(
+    /^(\d{4}-\d{2}-\d{2} (\d{2}:\d{2}:\d{2}))\.\d+\s+(\w{1,2})\s+(\w+)\[[\d:a-f]+\]\s+(?:\[([^\]]+)\]\s+)?(.*)/,
+  );
   if (compact) {
     const [, , time, levelCode, process, subsystem, message] = compact;
     const level = IOS_COMPACT_LEVEL[levelCode] || 'I';
@@ -88,11 +103,13 @@ function formatIos(line: string): { time: string; level: string; tag: string; me
     return { time, level, tag, message };
   }
   // Verbose format fallback
-  const verbose = line.match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+[^\[]*\[([^\]]+)\]\s*(?:\[(Default|Info|Debug|Error|Fault)\])?\s*(.*)/);
+  const verbose = line.match(
+    /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\.\d+[^[]*\[([^\]]+)\]\s*(?:\[(Default|Info|Debug|Error|Fault)\])?\s*(.*)/,
+  );
   if (verbose) {
-    const [, datetime, proc, level, message] = verbose;
+    const [, datetime, proc, verboseLevel, message] = verbose;
     const time = datetime.split(' ')[1];
-    const lvl = level || 'Info';
+    const lvl = verboseLevel || 'Info';
     return { time, level: lvl[0], tag: proc, message };
   }
   return null;
@@ -113,15 +130,15 @@ export function colorizeLine(line: string, platform: Platform): string {
 
   if (!parsed) return chalk.dim(line);
 
-  const { time, level, tag, message } = parsed;
+  const { time, tag, message } = parsed;
   const logLevel = parseLogLevel(line, platform);
 
   const LEVEL_STYLE: Record<string, { label: string; color: (s: string) => string }> = {
-    fatal:   { label: '[FATAL]', color: chalk.bold.red },
-    error:   { label: '[ERROR]', color: chalk.red },
-    warn:    { label: '[WARN] ', color: chalk.yellow },
-    info:    { label: '[LOG]  ', color: chalk.green },
-    debug:   { label: '[DEBUG]', color: chalk.blue },
+    fatal: { label: '[FATAL]', color: chalk.bold.red },
+    error: { label: '[ERROR]', color: chalk.red },
+    warn: { label: '[WARN] ', color: chalk.yellow },
+    info: { label: '[LOG]  ', color: chalk.green },
+    debug: { label: '[DEBUG]', color: chalk.blue },
     verbose: { label: '[TRACE]', color: chalk.dim },
   };
 

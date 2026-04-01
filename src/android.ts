@@ -9,7 +9,9 @@ function adbCheck(): void {
   try {
     execSync('command -v adb', { stdio: 'ignore' });
   } catch {
-    throw new Error('adb not found in PATH. Install Android SDK platform-tools and ensure adb is in your PATH.');
+    throw new Error(
+      'adb not found in PATH. Install Android SDK platform-tools and ensure adb is in your PATH.',
+    );
   }
 }
 
@@ -19,9 +21,11 @@ function deviceCheck(): void {
     if (state !== 'device') {
       throw new Error(`adb device state is "${state}". Connect a device or start an emulator.`);
     }
-  } catch (err: any) {
-    if (err.message.includes('adb device state')) throw err;
-    throw new Error('No Android device or emulator connected. Run "adb devices" to check.');
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('adb device state')) throw err;
+    throw new Error('No Android device or emulator connected. Run "adb devices" to check.', {
+      cause: err,
+    });
   }
 }
 
@@ -47,13 +51,27 @@ async function waitForPid(appId: string): Promise<string> {
   });
 }
 
-export async function streamAndroid({ appId, filter, noiseFilter, saver, all, tail, follow, patterns, dedup: dedupEnabled = true, jsOnly, nativeOnly }: StreamOptions): Promise<void> {
+export async function streamAndroid({
+  appId,
+  filter,
+  noiseFilter,
+  saver,
+  all,
+  tail,
+  follow,
+  patterns,
+  dedup: dedupEnabled = true,
+  jsOnly,
+  nativeOnly,
+}: StreamOptions): Promise<void> {
   adbCheck();
   deviceCheck();
 
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
 
-  const isNewAndroidEntry = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(/^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/);
+  const isNewAndroidEntry = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/.test.bind(
+    /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+/,
+  );
   let lastWasJs = false;
 
   function outputLine(line: string) {
@@ -156,7 +174,9 @@ export async function streamAndroid({ appId, filter, noiseFilter, saver, all, ta
           logcatProc = null;
         }
 
-        process.stdout.write(chalk.cyan(`App restarted (PID ${currentPid} → ${newPid ?? 'gone'}). Reconnecting...\n`));
+        process.stdout.write(
+          chalk.cyan(`App restarted (PID ${currentPid} → ${newPid ?? 'gone'}). Reconnecting...\n`),
+        );
         currentPid = null;
 
         await start();
