@@ -42,28 +42,19 @@ rn-devlog --save
 
 ## Options
 
-### Platform
-
-| Flag           | Description                                |
-| -------------- | ------------------------------------------ |
-| `--android`    | Force Android platform                     |
-| `--ios`        | Force iOS platform                         |
-| `--appId <id>` | Manual app identifier override             |
-| `--all`        | Show all device logs without app filtering |
-
-### Log level
-
-| Flag      | Description             |
-| --------- | ----------------------- |
-| `--error` | Show errors only        |
-| `--warn`  | Show warnings and above |
-| `--info`  | Show info and above     |
-| `--debug` | Show debug and above    |
-
-### Filtering
-
 | Flag                     | Description                                                 |
 | ------------------------ | ----------------------------------------------------------- |
+| **Platform**             |                                                             |
+| `--android`              | Force Android platform                                      |
+| `--ios`                  | Force iOS platform                                          |
+| `--appId <id>`           | Manual app identifier override                              |
+| `--all`                  | Show all device logs without app filtering                  |
+| **Log level**            |                                                             |
+| `--error`                | Show errors only                                            |
+| `--warn`                 | Show warnings and above                                     |
+| `--info`                 | Show info and above                                         |
+| `--debug`                | Show debug and above                                        |
+| **Filtering**            |                                                             |
 | `--filter <pattern...>`  | Filter by text pattern (multiple allowed, case insensitive) |
 | `--exclude <pattern...>` | Exclude lines matching pattern (opposite of `--filter`)     |
 | `--regex`                | Treat `--filter` and `--exclude` patterns as regex          |
@@ -72,16 +63,12 @@ rn-devlog --save
 | `--since <duration>`     | Show logs from the last duration (`5m`, `30s`, `1h`, `2d`)  |
 | `--verbose`              | Show all logs including system noise (GC, metro polling)    |
 | `--no-dedup`             | Show duplicate consecutive lines (default: collapsed)       |
-
-### Output
-
-| Flag            | Description                                              |
-| --------------- | -------------------------------------------------------- |
-| `--save [path]` | Save logs to file (default: `./logs/<timestamp>.log`)    |
-| `--clear`       | Delete saved log files                                   |
-| `--tail <n>`    | Show last N lines then exit                              |
-| `-f, --follow`  | Keep listening after `--tail` (default without `--tail`) |
-| `--no-stats`    | Hide session stats on exit                               |
+| **Output**               |                                                             |
+| `--save [path]`          | Save logs to file (default: `./logs/<timestamp>.log`)       |
+| `--clear`                | Delete saved log files                                      |
+| `--tail <n>`             | Show last N lines then exit                                 |
+| `-f, --follow`           | Keep listening after `--tail` (default without `--tail`)    |
+| `--no-stats`             | Hide session stats on exit                                  |
 
 ## Config File
 
