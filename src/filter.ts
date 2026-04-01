@@ -7,18 +7,24 @@ const ANDROID_LEVEL_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+([
 const IOS_LEVEL_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+(\w{1,2})\s/;
 
 const IOS_CODE_TO_LEVEL: Record<string, string> = {
-  'Db': 'D', 'D': 'D',
-  'Df': 'I', 'I': 'I', 'N': 'I',
-  'E': 'E', 'Er': 'E',
-  'F': 'F', 'Ft': 'F',
-  'W': 'W',
+  Db: 'D',
+  D: 'D',
+  Df: 'I',
+  I: 'I',
+  N: 'I',
+  E: 'E',
+  Er: 'E',
+  F: 'F',
+  Ft: 'F',
+  W: 'W',
 };
 
 // Extract message part (after "TAG: ") — Android
 const MESSAGE_RE = /^\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}\s+\d+\s+\d+\s+[VDIWEF]\s+[^:]+:\s*(.*)/;
 
 // Extract message part — iOS compact (after [subsystem:category])
-const IOS_MESSAGE_RE = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+\w{1,2}\s+\w+\[[\d:a-f]+\]\s+(?:\[[^\]]+\]\s+)?(.*)/;
+const IOS_MESSAGE_RE =
+  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+\s+\w{1,2}\s+\w+\[[\d:a-f]+\]\s+(?:\[[^\]]+\]\s+)?(.*)/;
 
 const SEVERITY: Record<string, number> = { V: 0, D: 1, I: 2, W: 3, E: 4, F: 5 };
 
@@ -36,10 +42,13 @@ export function escapeRegex(str: string): string {
 }
 
 export function createFilter(options: FilterOptions = {}): (line: string) => boolean {
-  const { level, patterns, regex } = options;
+  const { level, patterns, exclude, regex } = options;
   const minSeverity = level ? SEVERITY[LEVEL_MAP[level]] : -1;
   const matchers = patterns?.length
     ? patterns.map((p) => new RegExp(regex ? p : escapeRegex(p), 'i'))
+    : null;
+  const excluders = exclude?.length
+    ? exclude.map((p) => new RegExp(regex ? p : escapeRegex(p), 'i'))
     : null;
 
   return (line: string) => {
@@ -60,11 +69,16 @@ export function createFilter(options: FilterOptions = {}): (line: string) => boo
       }
     }
 
+    const androidMsg = MESSAGE_RE.exec(line);
+    const iosMsg = !androidMsg ? IOS_MESSAGE_RE.exec(line) : null;
+    const message = androidMsg?.[1] ?? iosMsg?.[1] ?? line;
+
     if (matchers) {
-      const androidMsg = MESSAGE_RE.exec(line);
-      const iosMsg = !androidMsg ? IOS_MESSAGE_RE.exec(line) : null;
-      const message = androidMsg?.[1] ?? iosMsg?.[1] ?? line;
       if (!matchers.some((re) => re.test(message))) return false;
+    }
+
+    if (excluders) {
+      if (excluders.some((re) => re.test(message))) return false;
     }
 
     return true;

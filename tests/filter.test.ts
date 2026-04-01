@@ -62,4 +62,30 @@ describe('createFilter', () => {
     expect(fn('hello world')).toBe(true);
     expect(fn('goodbye')).toBe(false);
   });
+
+  it('excludes lines matching --exclude pattern', () => {
+    const fn = createFilter({ exclude: ['noisy'] });
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: noisy log output')).toBe(false);
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: useful log')).toBe(true);
+  });
+
+  it('excludes with multiple patterns (OR logic)', () => {
+    const fn = createFilter({ exclude: ['noisy', 'spam'] });
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: noisy stuff')).toBe(false);
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: spam message')).toBe(false);
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: important log')).toBe(true);
+  });
+
+  it('combines --filter and --exclude (include then exclude)', () => {
+    const fn = createFilter({ patterns: ['Network'], exclude: ['polling'] });
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: Network request sent')).toBe(true);
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: Network polling tick')).toBe(false);
+    expect(fn('03-25 10:00:00.000  1234  5678 I MyTag: UI rendered')).toBe(false);
+  });
+
+  it('exclude is case insensitive', () => {
+    const fn = createFilter({ exclude: ['NOISY'] });
+    expect(fn('noisy log output')).toBe(false);
+    expect(fn('Noisy Log Output')).toBe(false);
+  });
 });

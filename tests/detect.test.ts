@@ -14,9 +14,12 @@ describe('detectAppId', () => {
 
   it('reads android package from app.json (expo)', async () => {
     await setup();
-    await writeFile(join(dir, 'app.json'), JSON.stringify({
-      expo: { android: { package: 'com.expo.app' } }
-    }));
+    await writeFile(
+      join(dir, 'app.json'),
+      JSON.stringify({
+        expo: { android: { package: 'com.expo.app' } },
+      }),
+    );
     const result = await detectAppId(dir, 'android');
     expect(result).toBe('com.expo.app');
     await cleanup();
@@ -24,9 +27,12 @@ describe('detectAppId', () => {
 
   it('reads ios bundle id from app.json (expo)', async () => {
     await setup();
-    await writeFile(join(dir, 'app.json'), JSON.stringify({
-      expo: { ios: { bundleIdentifier: 'com.expo.ios' } }
-    }));
+    await writeFile(
+      join(dir, 'app.json'),
+      JSON.stringify({
+        expo: { ios: { bundleIdentifier: 'com.expo.ios' } },
+      }),
+    );
     const result = await detectAppId(dir, 'ios');
     expect(result).toBe('com.expo.ios');
     await cleanup();
@@ -35,8 +41,9 @@ describe('detectAppId', () => {
   it('reads applicationId from build.gradle', async () => {
     await setup();
     await mkdir(join(dir, 'android', 'app'), { recursive: true });
-    await writeFile(join(dir, 'android', 'app', 'build.gradle'),
-      'android {\n  defaultConfig {\n    applicationId "com.gradle.app"\n  }\n}'
+    await writeFile(
+      join(dir, 'android', 'app', 'build.gradle'),
+      'android {\n  defaultConfig {\n    applicationId "com.gradle.app"\n  }\n}',
     );
     const result = await detectAppId(dir, 'android');
     expect(result).toBe('com.gradle.app');
@@ -53,8 +60,9 @@ describe('detectAppId', () => {
   it('collects multiple applicationIds from build.gradle flavors', async () => {
     await setup();
     await mkdir(join(dir, 'android', 'app'), { recursive: true });
-    await writeFile(join(dir, 'android', 'app', 'build.gradle'),
-      'productFlavors {\n  main {\n    applicationId "com.app.main"\n  }\n  staging {\n    applicationId "com.app.staging"\n  }\n}'
+    await writeFile(
+      join(dir, 'android', 'app', 'build.gradle'),
+      'productFlavors {\n  main {\n    applicationId "com.app.main"\n  }\n  staging {\n    applicationId "com.app.staging"\n  }\n}',
     );
     const ids = await collectAllIds(dir, 'android');
     expect(ids).toContain('com.app.main');

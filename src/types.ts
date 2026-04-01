@@ -24,5 +24,6 @@ export interface StreamOptions {
 export interface FilterOptions {
   level?: string;
   patterns?: string[];
+  exclude?: string[];
   regex?: boolean;
 }

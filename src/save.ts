@@ -10,7 +10,7 @@ export function createSaver(savePath: string | boolean): Saver {
     const timestamp = new Date().toISOString().replace(/:/g, '-');
     filePath = path.join('./logs', `${timestamp}.log`);
   } else {
-    filePath = savePath;
+    filePath = savePath as string;
   }
 
   const dir = path.dirname(filePath);

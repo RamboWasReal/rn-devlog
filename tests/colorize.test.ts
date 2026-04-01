@@ -15,16 +15,22 @@ describe('parseLogLevel', () => {
     expect(parseLogLevel('03-25 10:00:00.000  1234  5678 D MyTag: debug', 'android')).toBe('debug');
   });
   it('extracts V from android logcat line', () => {
-    expect(parseLogLevel('03-25 10:00:00.000  1234  5678 V MyTag: verbose', 'android')).toBe('verbose');
+    expect(parseLogLevel('03-25 10:00:00.000  1234  5678 V MyTag: verbose', 'android')).toBe(
+      'verbose',
+    );
   });
   it('extracts F from android logcat line', () => {
     expect(parseLogLevel('03-25 10:00:00.000  1234  5678 F MyTag: fatal', 'android')).toBe('fatal');
   });
   it('extracts Error from iOS log line', () => {
-    expect(parseLogLevel('2026-03-25 10:00:00.000000-0400  MyApp[1234:5678] [Error] something', 'ios')).toBe('error');
+    expect(
+      parseLogLevel('2026-03-25 10:00:00.000000-0400  MyApp[1234:5678] [Error] something', 'ios'),
+    ).toBe('error');
   });
   it('extracts Fault from iOS log line', () => {
-    expect(parseLogLevel('2026-03-25 10:00:00.000000-0400  MyApp[1234:5678] [Fault] something', 'ios')).toBe('fatal');
+    expect(
+      parseLogLevel('2026-03-25 10:00:00.000000-0400  MyApp[1234:5678] [Fault] something', 'ios'),
+    ).toBe('fatal');
   });
   it('returns info for unrecognized', () => {
     expect(parseLogLevel('random line', 'android')).toBe('info');

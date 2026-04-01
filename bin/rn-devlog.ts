@@ -24,7 +24,8 @@ program
   .option('--all', 'Show all device logs (no app filter)')
   .option('--tail <n>', 'Show last N lines then exit', parseInt)
   .option('-f, --follow', 'Keep listening after --tail (default without --tail)')
-  .option('--regex', 'Treat --filter patterns as regex (default: plain text)')
+  .option('--exclude <pattern...>', 'Exclude lines matching pattern (opposite of --filter)')
+  .option('--regex', 'Treat --filter and --exclude patterns as regex (default: plain text)')
   .option('--no-dedup', 'Show duplicate consecutive lines (default: collapsed)')
   .option('--verbose', 'Show all logs including system noise (GC, metro polling, etc.)')
   .option('--js', 'Show only JavaScript logs (ReactNativeJS)')
@@ -41,7 +42,7 @@ if (opts.clear) {
 }
 
 // Determine platform
-let platform: string | null = null;
+let platform: string;
 if (opts.android) platform = 'android';
 else if (opts.ios) platform = 'ios';
 else {
@@ -74,7 +75,12 @@ else if (opts.info) level = 'info';
 else if (opts.debug) level = 'debug';
 
 // Create filter
-const filter = createFilter({ level: level ?? undefined, patterns: opts.filter, regex: opts.regex });
+const filter = createFilter({
+  level: level ?? undefined,
+  patterns: opts.filter,
+  exclude: opts.exclude,
+  regex: opts.regex,
+});
 
 // Create saver if --save
 let saver = null;
@@ -87,7 +93,19 @@ if (opts.save !== undefined) {
 // follow = true by default, unless --tail without -f
 const follow = opts.tail ? !!opts.follow : true;
 const noiseFilter = opts.verbose ? null : createNoiseFilter();
-const streamOpts = { appId, filter, noiseFilter, saver, all: opts.all, tail: opts.tail, follow, patterns: opts.filter, dedup: opts.dedup !== false, jsOnly: opts.js, nativeOnly: opts.native };
+const streamOpts = {
+  appId,
+  filter,
+  noiseFilter,
+  saver,
+  all: opts.all,
+  tail: opts.tail,
+  follow,
+  patterns: opts.filter,
+  dedup: opts.dedup !== false,
+  jsOnly: opts.js,
+  nativeOnly: opts.native,
+};
 
 try {
   if (platform === 'android') {
