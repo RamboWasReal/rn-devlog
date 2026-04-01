@@ -6,4 +6,6 @@ export { createDedup } from './dedup.js';
 export { createNoiseFilter } from './noise.js';
 export { streamAndroid } from './android.js';
 export { streamIos } from './ios.js';
+export { parseDuration, createSinceFilter } from './since.js';
+export { createStats } from './stats.js';
 export type { Platform, LogLevel, Saver, StreamOptions, FilterOptions } from './types.js';

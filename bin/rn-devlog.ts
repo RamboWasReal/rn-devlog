@@ -1,12 +1,28 @@
 #!/usr/bin/env node
 import { program } from 'commander';
 import chalk from 'chalk';
+import fs from 'fs';
 import { detectAppId } from '../src/detect.js';
 import { streamAndroid } from '../src/android.js';
 import { streamIos } from '../src/ios.js';
 import { createFilter } from '../src/filter.js';
 import { createSaver, clearLogs } from '../src/save.js';
 import { createNoiseFilter } from '../src/noise.js';
+import { parseDuration, createSinceFilter } from '../src/since.js';
+import { createStats } from '../src/stats.js';
+
+// Load .devlogrc defaults from cwd
+function loadRc(): Record<string, unknown> {
+  const rcPath = '.devlogrc';
+  try {
+    const content = fs.readFileSync(rcPath, 'utf-8');
+    return JSON.parse(content);
+  } catch {
+    return {};
+  }
+}
+
+const rc = loadRc();
 
 program
   .name('rn-devlog')
@@ -25,14 +41,18 @@ program
   .option('--tail <n>', 'Show last N lines then exit', parseInt)
   .option('-f, --follow', 'Keep listening after --tail (default without --tail)')
   .option('--exclude <pattern...>', 'Exclude lines matching pattern (opposite of --filter)')
+  .option('--since <duration>', 'Only show logs from the last duration (e.g. 5m, 30s, 1h)')
   .option('--regex', 'Treat --filter and --exclude patterns as regex (default: plain text)')
   .option('--no-dedup', 'Show duplicate consecutive lines (default: collapsed)')
+  .option('--no-stats', 'Hide session stats on exit')
   .option('--verbose', 'Show all logs including system noise (GC, metro polling, etc.)')
   .option('--js', 'Show only JavaScript logs (ReactNativeJS)')
   .option('--native', 'Show only native logs (skip JS)')
   .parse();
 
-const opts = program.opts() as any;
+// Merge: CLI opts override .devlogrc
+const cliOpts = program.opts() as any;
+const opts = { ...rc, ...cliOpts };
 
 // Handle --clear
 if (opts.clear) {
@@ -89,6 +109,16 @@ if (opts.save !== undefined) {
   console.log(chalk.cyan(`Saving logs to: ${saver.path || 'file'}`));
 }
 
+// Since filter
+let sinceFilter = null;
+if (opts.since) {
+  const ms = parseDuration(opts.since);
+  sinceFilter = createSinceFilter(ms);
+}
+
+// Stats
+const stats = opts.stats !== false ? createStats() : null;
+
 // Stream
 // follow = true by default, unless --tail without -f
 const follow = opts.tail ? !!opts.follow : true;
@@ -97,6 +127,7 @@ const streamOpts = {
   appId,
   filter,
   noiseFilter,
+  sinceFilter,
   saver,
   all: opts.all,
   tail: opts.tail,
@@ -105,6 +136,7 @@ const streamOpts = {
   dedup: opts.dedup !== false,
   jsOnly: opts.js,
   nativeOnly: opts.native,
+  stats,
 };
 
 try {

@@ -27,6 +27,9 @@ rn-devlog --ios --filter ReactNative bridge
 # JS logs only, exclude noisy patterns
 rn-devlog --js --exclude "timer" "polling"
 
+# Only logs from the last 5 minutes
+rn-devlog --since 5m
+
 # Show last 50 lines then keep following
 rn-devlog --tail 50 -f
 
@@ -66,6 +69,7 @@ rn-devlog --save
 | `--regex`                | Treat `--filter` and `--exclude` patterns as regex          |
 | `--js`                   | Show only JavaScript logs (ReactNativeJS)                   |
 | `--native`               | Show only native logs (skip JS)                             |
+| `--since <duration>`     | Show logs from the last duration (`5m`, `30s`, `1h`, `2d`)  |
 | `--verbose`              | Show all logs including system noise (GC, metro polling)    |
 | `--no-dedup`             | Show duplicate consecutive lines (default: collapsed)       |
 
@@ -77,6 +81,22 @@ rn-devlog --save
 | `--clear`       | Delete saved log files                                   |
 | `--tail <n>`    | Show last N lines then exit                              |
 | `-f, --follow`  | Keep listening after `--tail` (default without `--tail`) |
+| `--no-stats`    | Hide session stats on exit                               |
+
+## Config File
+
+Create a `.devlogrc` file in your project root to set default options:
+
+```json
+{
+  "android": true,
+  "js": true,
+  "exclude": ["timer", "polling"],
+  "since": "10m"
+}
+```
+
+CLI flags override `.devlogrc` values.
 
 ## Auto-Detection
 

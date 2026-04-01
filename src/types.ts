@@ -11,6 +11,7 @@ export interface StreamOptions {
   appId: string;
   filter: (line: string) => boolean;
   noiseFilter: ((line: string) => boolean) | null;
+  sinceFilter: ((line: string) => boolean) | null;
   saver: Saver | null;
   all: boolean;
   tail?: number;
@@ -19,6 +20,7 @@ export interface StreamOptions {
   dedup?: boolean;
   jsOnly?: boolean;
   nativeOnly?: boolean;
+  stats?: { record(line: string): void; print(): void } | null;
 }
 
 export interface FilterOptions {

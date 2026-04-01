@@ -44,6 +44,7 @@ export function streamIos({
   appId,
   filter,
   noiseFilter,
+  sinceFilter,
   saver,
   all,
   tail,
@@ -52,6 +53,7 @@ export function streamIos({
   dedup: dedupEnabled = true,
   jsOnly,
   nativeOnly,
+  stats,
 }: StreamOptions): void {
   const simulatorMode = isSimulatorBooted();
   const dedup = dedupEnabled ? createDedup((c) => process.stdout.write(c + '\n')) : null;
@@ -84,6 +86,8 @@ export function streamIos({
     if (nativeOnly && isJsLog) return;
     if (filter && !filter(line)) return;
     if (noiseFilter && !noiseFilter(line)) return;
+    if (sinceFilter && !sinceFilter(line)) return;
+    if (stats) stats.record(line);
     let colorized = colorizeLine(line, 'ios');
     colorized = highlightPatterns(colorized, line, patterns);
     if (saver) saver.write(line);
@@ -170,6 +174,8 @@ export function streamIos({
 
   process.on('SIGINT', () => {
     child.kill();
+    if (dedup) dedup.flush();
+    if (stats) stats.print();
     if (saver) saver.close();
     process.exit(0);
   });

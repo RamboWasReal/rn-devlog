@@ -55,6 +55,7 @@ export async function streamAndroid({
   appId,
   filter,
   noiseFilter,
+  sinceFilter,
   saver,
   all,
   tail,
@@ -63,6 +64,7 @@ export async function streamAndroid({
   dedup: dedupEnabled = true,
   jsOnly,
   nativeOnly,
+  stats,
 }: StreamOptions): Promise<void> {
   adbCheck();
   deviceCheck();
@@ -81,6 +83,8 @@ export async function streamAndroid({
     if (jsOnly && !isJsLog) return;
     if (nativeOnly && isJsLog) return;
     if (noiseFilter && !noiseFilter(line)) return;
+    if (sinceFilter && !sinceFilter(line)) return;
+    if (stats) stats.record(line);
     let colorized = colorizeLine(line, 'android');
     colorized = highlightPatterns(colorized, line, patterns);
     if (saver) saver.write(line);
@@ -189,6 +193,8 @@ export async function streamAndroid({
     if (logcatProc) {
       logcatProc.kill();
     }
+    if (dedup) dedup.flush();
+    if (stats) stats.print();
     if (saver) saver.close();
     process.exit(0);
   });
